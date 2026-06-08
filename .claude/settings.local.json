@@ -36,7 +36,8 @@
       "Bash(disown)",
       "Bash(wsl -d Ubuntu -u root -- bash -c \" *)",
       "Bash(cp \"C:\\\\Users\\\\rodri\\\\OneDrive\\\\Desktop\\\\PyFibers_ICS\\\\src\\\\\"*.py /tmp/pyf_src/ 2>/dev/null; mkdir -p /tmp/pyf_src && cp \"C:\\\\Users\\\\rodri\\\\OneDrive\\\\Desktop\\\\PyFibers_ICS\\\\src\\\\\"*.py /tmp/pyf_src/)",
-      "Bash(wsl -d Ubuntu -u root -- bash -c \"mkdir -p /root/test_ics/src && cp /mnt/c/Users/rodri/OneDrive/Desktop/PyFibers_ICS/src/*.py /root/test_ics/src/ && ls /root/test_ics/src\")"
+      "Bash(wsl -d Ubuntu -u root -- bash -c \"mkdir -p /root/test_ics/src && cp /mnt/c/Users/rodri/OneDrive/Desktop/PyFibers_ICS/src/*.py /root/test_ics/src/ && ls /root/test_ics/src\")",
+      "Bash(wsl -d Ubuntu -u root -- bash -c \"/root/pyfibers_env/bin/python -c 'import neuron, pyfibers; print\\(neuron.__version__, \\\\\"pyfibers ok\\\\\"\\)'\")"
     ]
   }
 }
