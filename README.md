@@ -38,11 +38,25 @@ docs/             Notes on the COMSOL model setup and simulation parameters
 
 ## Setup
 
+PyFibers depends on [NEURON](https://www.neuron.yale.edu/neuron/), which does not ship Windows
+wheels on PyPI. **Use WSL (Ubuntu)** for a working environment:
+
 ```bash
-python -m venv .venv
-.venv\Scripts\activate   # Windows
-pip install -r requirements.txt
+wsl --install            # one-time, requires reboot
+wsl -d Ubuntu
+
+# inside WSL Ubuntu:
+sudo apt-get update && sudo apt-get install -y python3-venv python3-pip build-essential
+python3 -m venv ~/pyfibers_env
+source ~/pyfibers_env/bin/activate
+pip install pyfibers numpy scipy pandas matplotlib neuron
+
+# compile NEURON mechanisms bundled with PyFibers (one-time)
+python -c "import pyfibers; print(pyfibers.MOD_dir)"
+cd <path-printed-above> && nrnivmodl
 ```
+
+This setup was verified end-to-end with `pyfibers==0.8.5` and `neuron==9.0.1`.
 
 ## Usage
 
@@ -50,7 +64,11 @@ pip install -r requirements.txt
 python src/run_simulation.py \
     --channel1-file comsol_exports/channel1_field.csv \
     --channel2-file comsol_exports/channel2_field.csv \
-    --f1 4000 --f2 4100 --amplitude 1e-3
-
-python src/plot_results.py
+    --fiber-diameter 10 --n-nodes 51 \
+    --f1 4000 --f2 4100 --amplitude1 1.0 --amplitude2 1.0 --tstop 50 --dt 0.001
 ```
+
+This builds the femoral nerve fiber, assigns the two interpolated COMSOL potential fields as
+the fiber's two stimulation sources (`fiber.potentials = [v1, v2]`), drives them with sinusoidal
+waveforms at `f1`/`f2` via `pyfibers.ScaledStim`, and reports whether/when an action potential
+was detected.
