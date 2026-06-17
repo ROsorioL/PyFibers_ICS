@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import time
 
 import matplotlib
 matplotlib.use("Agg")  # non-interactive backend, safe in WSL without a display
@@ -83,8 +84,11 @@ def main() -> None:
     # 5. Run the simulation: ScaledStim multiplies each source's potentials by its waveform
     #    and the corresponding stimamp scale factor, then sums them (superposition).
     stim = ScaledStim(waveform=waveforms, dt=args.dt, tstop=args.tstop)
+    t_start = time.perf_counter()
     ap, ap_time = stim.run_sim(stimamp=[args.amplitude1, args.amplitude2], fiber=fiber)
+    t_elapsed = time.perf_counter() - t_start
 
+    print(f"Simulation time: {t_elapsed:.2f} s")
     print(f"Action potential detected: {bool(ap)} (count={ap}), at t = {ap_time} ms")
 
     # 6. Plot stimulation waveform + membrane voltage traces and save to results/
@@ -134,21 +138,24 @@ def main() -> None:
     plt.close(fig)
     print(f"Plot saved to {out_path}")
 
-    # 7. Second plot: all-nodes voltage heatmap to visualise AP propagation
-    vm_matrix = np.array([np.array(fiber.vm[i]) for i in range(n_nodes)])  # (n_nodes, n_timepoints)
-
+    # 7. Second plot: all-nodes line plot to visualise AP propagation
     fig2, ax2 = plt.subplots(figsize=(12, 6))
-    im = ax2.pcolormesh(t, np.arange(n_nodes), vm_matrix, cmap="RdBu_r", shading="auto",
-                        vmin=-90, vmax=50)
-    cbar = fig2.colorbar(im, ax=ax2)
-    cbar.set_label("Vm (mV)")
+    colors = plt.cm.viridis(np.linspace(0, 1, n_nodes))
+    for i in range(n_nodes):
+        ax2.plot(t, np.array(fiber.vm[i]), color=colors[i], linewidth=0.6, alpha=0.8)
+
+    sm = plt.cm.ScalarMappable(cmap="viridis", norm=plt.Normalize(vmin=0, vmax=n_nodes - 1))
+    cbar2 = fig2.colorbar(sm, ax=ax2)
+    cbar2.set_label("Node index")
+    ax2.axhline(-30, color="red", linestyle="--", linewidth=0.8, label="AP threshold (−30 mV)")
     ax2.set_xlabel("Time (ms)")
-    ax2.set_ylabel("Node index")
+    ax2.set_ylabel("Vm (mV)")
     ax2.set_title(
         f"AP propagation — all nodes\n"
         f"f1={args.f1:.0f} Hz, f2={args.f2:.0f} Hz, beat={ifc_params.beat_frequency:.0f} Hz  |  "
         f"AP detected: {bool(ap)}, count={ap}, t={ap_time} ms"
     )
+    ax2.legend(fontsize=8)
     fig2.tight_layout()
 
     prop_path = os.path.join("results", "vm_propagation.png")
