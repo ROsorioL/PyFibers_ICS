@@ -36,12 +36,28 @@ def interpolate_to_fiber(field: pd.DataFrame, fiber_coords: np.ndarray) -> np.nd
     """
     points = field[["x", "y", "z"]].to_numpy()
     values = field["V"].to_numpy()
+
+    # Drop axes that are constant in the field data to avoid Qhull dimensionality errors
+    # (e.g. when the nerve runs along z only and x=0, y=0 everywhere).
+    varying = np.where(points.max(axis=0) - points.min(axis=0) > 0)[0]
+
+    if varying.size == 1:
+        # Purely 1D data: use np.interp to avoid Qhull entirely and keep output shape clean.
+        z_pts = points[:, varying[0]]
+        z_query = fiber_coords[:, varying[0]]
+        sort_idx = np.argsort(z_pts)
+        return np.interp(z_query, z_pts[sort_idx], values[sort_idx])
+
+    if varying.size < points.shape[1]:
+        points = points[:, varying]
+        fiber_coords = fiber_coords[:, varying]
+
     interpolated = griddata(points, values, fiber_coords, method="linear")
     # Fall back to nearest-neighbor for any points outside the convex hull of the COMSOL mesh
     nan_mask = np.isnan(interpolated)
     if np.any(nan_mask):
         interpolated[nan_mask] = griddata(points, values, fiber_coords[nan_mask], method="nearest")
-    return interpolated
+    return interpolated.squeeze()
 
 
 def load_channel_potentials(channel1_path: str, channel2_path: str, fiber_coords: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

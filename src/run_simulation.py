@@ -24,8 +24,13 @@ Pipeline:
 from __future__ import annotations
 
 import argparse
+import os
 
+import matplotlib
+matplotlib.use("Agg")  # non-interactive backend, safe in WSL without a display
+import matplotlib.pyplot as plt
 import numpy as np
+from neuron import h
 from pyfibers import build_fiber, FiberModel, ScaledStim
 
 from ifc_waveform import IFCParams
@@ -71,12 +76,85 @@ def main() -> None:
     print(f"Beat frequency at target tissue: {ifc_params.beat_frequency:.1f} Hz")
     waveforms = [make_waveform(args.f1), make_waveform(args.f2)]
 
-    # 4. Run the simulation: ScaledStim multiplies each source's potentials by its waveform
+    # 4. Set up membrane voltage recording before running
+    tvec = h.Vector().record(h._ref_t)
+    fiber.record_vm()
+
+    # 5. Run the simulation: ScaledStim multiplies each source's potentials by its waveform
     #    and the corresponding stimamp scale factor, then sums them (superposition).
     stim = ScaledStim(waveform=waveforms, dt=args.dt, tstop=args.tstop)
     ap, ap_time = stim.run_sim(stimamp=[args.amplitude1, args.amplitude2], fiber=fiber)
 
     print(f"Action potential detected: {bool(ap)} (count={ap}), at t = {ap_time} ms")
+
+    # 6. Plot stimulation waveform + membrane voltage traces and save to results/
+    t = np.array(tvec)
+    t_waveform = np.arange(0, args.tstop, args.dt)
+    combined_waveform = (
+        args.amplitude1 * np.sin(2 * np.pi * args.f1 * t_waveform * 1e-3)
+        + args.amplitude2 * np.sin(2 * np.pi * args.f2 * t_waveform * 1e-3)
+    )
+
+    n_nodes = len(fiber.vm)
+    mid = n_nodes // 2
+    node_indices = [0, mid, n_nodes - 1]
+    node_labels = ["proximal", "middle", "distal"]
+
+    fig, axes = plt.subplots(len(node_indices) + 1, 1, figsize=(10, 10), sharex=True)
+
+    # Top panel: combined IFC waveform
+    axes[0].plot(t_waveform, combined_waveform, linewidth=0.5, color="steelblue")
+    axes[0].set_ylabel("Amplitude (mA)")
+    axes[0].set_title(
+        f"Combined IFC waveform  (f1={args.f1:.0f} Hz × {args.amplitude1} mA  +  "
+        f"f2={args.f2:.0f} Hz × {args.amplitude2} mA,  beat={ifc_params.beat_frequency:.0f} Hz)"
+    )
+    axes[0].grid(True, linewidth=0.3)
+
+    # Remaining panels: membrane voltage at selected nodes
+    for ax, idx, label in zip(axes[1:], node_indices, node_labels):
+        vm = np.array(fiber.vm[idx])
+        ax.plot(t, vm, linewidth=0.8, color="darkorange")
+        ax.set_ylabel("Vm (mV)")
+        ax.set_title(f"Node {idx} ({label})")
+        ax.axhline(-30, color="red", linestyle="--", linewidth=0.6, label="AP threshold (−30 mV)")
+        ax.legend(fontsize=7, loc="upper right")
+        ax.grid(True, linewidth=0.3)
+
+    axes[-1].set_xlabel("Time (ms)")
+    fig.suptitle(
+        f"IFC Simulation — AP detected: {bool(ap)}, count={ap}, t={ap_time} ms",
+        fontsize=10,
+    )
+    fig.tight_layout()
+
+    os.makedirs("results", exist_ok=True)
+    out_path = os.path.join("results", "vm_trace.png")
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    print(f"Plot saved to {out_path}")
+
+    # 7. Second plot: all-nodes voltage heatmap to visualise AP propagation
+    vm_matrix = np.array([np.array(fiber.vm[i]) for i in range(n_nodes)])  # (n_nodes, n_timepoints)
+
+    fig2, ax2 = plt.subplots(figsize=(12, 6))
+    im = ax2.pcolormesh(t, np.arange(n_nodes), vm_matrix, cmap="RdBu_r", shading="auto",
+                        vmin=-90, vmax=50)
+    cbar = fig2.colorbar(im, ax=ax2)
+    cbar.set_label("Vm (mV)")
+    ax2.set_xlabel("Time (ms)")
+    ax2.set_ylabel("Node index")
+    ax2.set_title(
+        f"AP propagation — all nodes\n"
+        f"f1={args.f1:.0f} Hz, f2={args.f2:.0f} Hz, beat={ifc_params.beat_frequency:.0f} Hz  |  "
+        f"AP detected: {bool(ap)}, count={ap}, t={ap_time} ms"
+    )
+    fig2.tight_layout()
+
+    prop_path = os.path.join("results", "vm_propagation.png")
+    fig2.savefig(prop_path, dpi=150)
+    plt.close(fig2)
+    print(f"Plot saved to {prop_path}")
 
 
 if __name__ == "__main__":
