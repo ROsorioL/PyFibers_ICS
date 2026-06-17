@@ -24,6 +24,7 @@ Pipeline:
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import time
 
@@ -162,6 +163,41 @@ def main() -> None:
     fig2.savefig(prop_path, dpi=150)
     plt.close(fig2)
     print(f"Plot saved to {prop_path}")
+
+    # 8. Third plot: one subplot per node
+    ncols = 5
+    nrows = math.ceil(n_nodes / ncols)
+    colors = plt.cm.viridis(np.linspace(0, 1, n_nodes))
+
+    fig3, axes3 = plt.subplots(nrows, ncols, figsize=(ncols * 3, nrows * 2), sharex=True, sharey=True)
+    axes3_flat = axes3.flatten()
+
+    for i in range(n_nodes):
+        ax = axes3_flat[i]
+        ax.plot(t, np.array(fiber.vm[i]), color=colors[i], linewidth=0.7)
+        ax.axhline(-30, color="red", linestyle="--", linewidth=0.5)
+        ax.set_title(f"Node {i}", fontsize=7)
+        ax.tick_params(labelsize=6)
+
+    # Hide unused subplots
+    for j in range(n_nodes, len(axes3_flat)):
+        axes3_flat[j].set_visible(False)
+
+    # Shared axis labels
+    fig3.text(0.5, 0.02, "Time (ms)", ha="center", fontsize=9)
+    fig3.text(0.02, 0.5, "Vm (mV)", va="center", rotation="vertical", fontsize=9)
+    fig3.suptitle(
+        f"Membrane voltage — individual nodes\n"
+        f"f1={args.f1:.0f} Hz, f2={args.f2:.0f} Hz, beat={ifc_params.beat_frequency:.0f} Hz  |  "
+        f"AP detected: {bool(ap)}, count={ap}, t={ap_time} ms",
+        fontsize=10,
+    )
+    fig3.tight_layout(rect=[0.04, 0.04, 1, 0.95])
+
+    nodes_path = os.path.join("results", "vm_nodes.png")
+    fig3.savefig(nodes_path, dpi=150)
+    plt.close(fig3)
+    print(f"Plot saved to {nodes_path}")
 
 
 if __name__ == "__main__":
