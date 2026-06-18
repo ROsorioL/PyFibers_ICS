@@ -92,6 +92,14 @@ def main() -> None:
     print(f"Simulation time: {t_elapsed:.2f} s")
     print(f"Action potential detected: {bool(ap)} (count={ap}), at t = {ap_time} ms")
 
+    # Conduction velocity
+    try:
+        cv = fiber.measure_cv()
+        print(f"Conduction velocity: {cv:.2f} m/s")
+    except (RuntimeError, ValueError) as e:
+        cv = None
+        print(f"Conduction velocity: could not be measured ({e})")
+
     # 6. Plot stimulation waveform + membrane voltage traces and save to results/
     t = np.array(tvec)
     t_waveform = np.arange(0, args.tstop, args.dt)
@@ -198,6 +206,48 @@ def main() -> None:
     fig3.savefig(nodes_path, dpi=150)
     plt.close(fig3)
     print(f"Plot saved to {nodes_path}")
+
+    # 9. Fourth plot: AP arrival time vs node position (conduction velocity)
+    node_coords = [
+        fiber.longitudinal_coordinates[i]
+        for i, section in enumerate(fiber.sections)
+        if section in fiber.nodes
+    ]
+    ap_times_per_node = [
+        fiber.apc[i].time if fiber.apc[i].n > 0 else np.nan
+        for i in range(n_nodes)
+    ]
+    node_coords = np.array(node_coords) * 1e-3  # µm → mm
+    ap_times_per_node = np.array(ap_times_per_node)
+
+    fired = ~np.isnan(ap_times_per_node)
+
+    fig4, ax4 = plt.subplots(figsize=(9, 5))
+    ax4.scatter(node_coords[fired], ap_times_per_node[fired],
+                color="darkorange", s=20, zorder=3, label="AP arrival time")
+
+    if cv is not None and fired.sum() >= 2:
+        # Overlay linear fit to show expected propagation slope
+        z = np.polyfit(node_coords[fired], ap_times_per_node[fired], 1)
+        x_fit = np.linspace(node_coords[fired].min(), node_coords[fired].max(), 200)
+        ax4.plot(x_fit, np.polyval(z, x_fit), "k--", linewidth=1,
+                 label=f"Linear fit  (CV = {cv:.2f} m/s)")
+
+    ax4.set_xlabel("Node position (mm)")
+    ax4.set_ylabel("AP arrival time (ms)")
+    ax4.set_title(
+        f"AP propagation — arrival time vs. position\n"
+        f"f1={args.f1:.0f} Hz, f2={args.f2:.0f} Hz, beat={ifc_params.beat_frequency:.0f} Hz  |  "
+        f"CV = {f'{cv:.2f} m/s' if cv is not None else 'N/A'}"
+    )
+    ax4.legend(fontsize=8)
+    ax4.grid(True, linewidth=0.3)
+    fig4.tight_layout()
+
+    cv_path = os.path.join("results", "ap_propagation_cv.png")
+    fig4.savefig(cv_path, dpi=150)
+    plt.close(fig4)
+    print(f"Plot saved to {cv_path}")
 
 
 if __name__ == "__main__":
