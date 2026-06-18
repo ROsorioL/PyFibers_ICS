@@ -86,7 +86,7 @@ def main() -> None:
     #    and the corresponding stimamp scale factor, then sums them (superposition).
     stim = ScaledStim(waveform=waveforms, dt=args.dt, tstop=args.tstop)
     t_start = time.perf_counter()
-    ap, ap_time = stim.run_sim(stimamp=[args.amplitude1, args.amplitude2], fiber=fiber, ap_detect_threshold=-20)
+    ap, ap_time = stim.run_sim(stimamp=[args.amplitude1, args.amplitude2], fiber=fiber, ap_detect_threshold=20)
     t_elapsed = time.perf_counter() - t_start
 
     print(f"Simulation time: {t_elapsed:.2f} s")
@@ -130,7 +130,7 @@ def main() -> None:
         ax.plot(t, vm, linewidth=0.8, color="darkorange")
         ax.set_ylabel("Vm (mV)")
         ax.set_title(f"Node {idx} ({label})")
-        ax.axhline(-20, color="red", linestyle="--", linewidth=0.6, label="AP threshold (−20 mV)")
+        ax.axhline(20, color="red", linestyle="--", linewidth=0.6, label="AP threshold (+20 mV)")
         ax.legend(fontsize=7, loc="upper right")
         ax.grid(True, linewidth=0.3)
 
@@ -156,7 +156,7 @@ def main() -> None:
     sm = plt.cm.ScalarMappable(cmap="viridis", norm=plt.Normalize(vmin=0, vmax=n_nodes - 1))
     cbar2 = fig2.colorbar(sm, ax=ax2)
     cbar2.set_label("Node index")
-    ax2.axhline(-20, color="red", linestyle="--", linewidth=0.8, label="AP threshold (−20 mV)")
+    ax2.axhline(20, color="red", linestyle="--", linewidth=0.8, label="AP threshold (+20 mV)")
     ax2.set_xlabel("Time (ms)")
     ax2.set_ylabel("Vm (mV)")
     ax2.set_title(
@@ -183,7 +183,7 @@ def main() -> None:
     for i in range(n_nodes):
         ax = axes3_flat[i]
         ax.plot(t, np.array(fiber.vm[i]), color=colors[i], linewidth=0.7)
-        ax.axhline(-20, color="red", linestyle="--", linewidth=0.5)
+        ax.axhline(20, color="red", linestyle="--", linewidth=0.5)
         ax.set_title(f"Node {i}", fontsize=7)
         ax.tick_params(labelsize=6)
 
